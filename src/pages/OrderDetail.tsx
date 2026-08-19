@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
-import { ArrowLeft, Printer, Archive, User } from 'lucide-react'
+import { ArrowLeft, Printer, Archive, User, MessageCircle, Mail } from 'lucide-react'
 import { Card, PageHeader, Button, Badge, Spinner } from '../components/ui/primitives'
 import { getOrder, archiveOrder } from '../services/orders'
 import type { Order } from '../types/domain'
 import { formatCurrency, formatDateTime } from '../utils/format'
 import { ConfirmDialog } from '../components/common/Modal'
 import { useAuth } from '../hooks/useAuth'
+import { buildWhatsAppLink } from '../services/feedback'
 
 export function OrderDetail() {
   const { id } = useParams<{ id: string }>()
@@ -27,32 +28,64 @@ export function OrderDetail() {
 
   if (loading || !order) return <div className="flex h-64 items-center justify-center"><Spinner /></div>
 
+  const invoiceText = buildInvoiceMessage(order)
+  const waLink = order.customer?.phone ? buildWhatsAppLink(order.customer.phone, invoiceText) : '#'
+  const mailLink = order.customer?.email
+    ? `mailto:${order.customer.email}?subject=${encodeURIComponent(`Your Sake of Health Invoice — ${order.order_code}`)}&body=${encodeURIComponent(invoiceText)}`
+    : '#'
+
   return (
     <div className="mx-auto max-w-2xl">
-      <Link to="/orders" className="mb-4 inline-flex items-center gap-1.5 text-sm text-ink-400 hover:text-ink-700">
+      <Link to="/orders" className="no-print mb-4 inline-flex items-center gap-1.5 text-sm text-ink-400 hover:text-ink-700">
         <ArrowLeft className="h-4 w-4" /> Back to orders
       </Link>
 
-      <PageHeader
-        title={order.order_code}
-        description={formatDateTime(order.order_date)}
-        actions={
-          <>
-            <Button variant="secondary" onClick={() => window.print()}><Printer className="h-4 w-4" /> Print</Button>
-            {isAdmin && order.order_status === 'completed' && (
-              <Button variant="ghost" onClick={() => setShowArchive(true)}><Archive className="h-4 w-4" /> Archive</Button>
-            )}
-          </>
-        }
-      />
+      <div className="no-print">
+        <PageHeader
+          title={order.order_code}
+          description={formatDateTime(order.order_date)}
+          actions={
+            <>
+              <Button variant="secondary" onClick={() => window.print()}><Printer className="h-4 w-4" /> Print</Button>
+              {isAdmin && order.order_status === 'completed' && (
+                <Button variant="ghost" onClick={() => setShowArchive(true)}><Archive className="h-4 w-4" /> Archive</Button>
+              )}
+            </>
+          }
+        />
 
-      <Card className="p-6">
+        <div className="mb-4 flex flex-wrap gap-2">
+          <a href={waLink} target="_blank" rel="noreferrer" onClick={(e) => !order.customer?.phone && e.preventDefault()}>
+            <Button variant="secondary" disabled={!order.customer?.phone}>
+              <MessageCircle className="h-4 w-4" /> Send Invoice via WhatsApp
+            </Button>
+          </a>
+          <a href={mailLink} onClick={(e) => !order.customer?.email && e.preventDefault()}>
+            <Button variant="secondary" disabled={!order.customer?.email}>
+              <Mail className="h-4 w-4" /> Email Invoice
+            </Button>
+          </a>
+        </div>
+        {!order.customer?.email && (
+          <p className="mb-2 text-xs text-ink-400">Add an email to this customer's profile to enable emailing the invoice.</p>
+        )}
+        <p className="mb-4 text-xs text-ink-300">
+          Tip: for a clean printout without the browser's own date/URL header, open the print dialog's "More settings" and
+          uncheck "Headers and footers" (Chrome/Edge) — it only needs doing once, the browser remembers it after.
+        </p>
+      </div>
+
+      <Card className="print-area p-6">
         <div className="mb-5 flex items-center justify-between border-b border-ink-100 pb-5">
           <div>
             <p className="font-display text-lg font-semibold text-ink-900">Sake of Health</p>
             <p className="text-xs text-ink-400">Ixitek Healthcare and Wellness Pvt. Ltd.</p>
           </div>
-          <Badge status={order.payment_status}>{order.payment_status}</Badge>
+          <div className="text-right">
+            <Badge status={order.payment_status}>{order.payment_status}</Badge>
+            <p className="mt-1.5 text-sm font-semibold text-ink-800">{order.order_code}</p>
+            <p className="text-xs text-ink-400">{formatDateTime(order.order_date)}</p>
+          </div>
         </div>
 
         <div className="mb-5 grid grid-cols-2 gap-4 text-sm">
@@ -112,4 +145,23 @@ export function OrderDetail() {
       )}
     </div>
   )
+}
+
+function buildInvoiceMessage(order: Order) {
+  const lines = order.order_items?.map(
+    (i) => `${i.product?.name} x${i.quantity} — ${formatCurrency(i.total_price)}`
+  ) ?? []
+  return [
+    `Sake of Health — Invoice ${order.order_code}`,
+    formatDateTime(order.order_date),
+    '',
+    ...lines,
+    '',
+    `Subtotal: ${formatCurrency(order.subtotal)}`,
+    `Discount: -${formatCurrency(order.discount)}`,
+    `Total: ${formatCurrency(order.total_amount)}`,
+    `Payment: ${order.payment_method} (${order.payment_status})`,
+    '',
+    'Thank you for shopping with Sake of Health!',
+  ].join('\n')
 }
