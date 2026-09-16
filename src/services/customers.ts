@@ -131,3 +131,57 @@ export async function getCustomerPurchaseSummary(customerId: string) {
 async function logAudit(userId: string | null, action: string, entityType: string, entityId: string, description: string) {
   await supabase.from('audit_logs').insert({ user_id: userId, action, entity_type: entityType, entity_id: entityId, description })
 }
+
+// --- Wrong-phone-number recovery -------------------------------------------
+
+/**
+ * Correct a customer's phone number after an offline-entry mistake.
+ * Throws a friendly error (via the DB function) if the corrected number
+ * already belongs to a different customer — in that case, use
+ * findDuplicateByPhone + mergeCustomerRecords instead of overwriting.
+ */
+export async function correctCustomerPhone(customerId: string, newPhone: string, staffId?: string | null, reason?: string) {
+  const { data, error } = await supabase.rpc('update_customer_phone', {
+    p_customer_id: customerId,
+    p_new_phone: newPhone.trim(),
+    p_staff_id: staffId ?? null,
+    p_reason: reason ?? null,
+  })
+  if (error) throw error
+  return data as Customer
+}
+
+/** Look up whether a phone number already belongs to a different existing customer. */
+export async function findDuplicateByPhone(phone: string, excludeCustomerId: string) {
+  const { data, error } = await supabase
+    .from('customers')
+    .select('*')
+    .eq('phone', phone.trim())
+    .is('deleted_at', null)
+    .neq('id', excludeCustomerId)
+    .maybeSingle()
+  if (error) throw error
+  return data as Customer | null
+}
+
+/** Merge a duplicate customer (created by a phone-number typo) into the correct/target customer. */
+export async function mergeCustomerRecords(targetId: string, duplicateId: string, staffId?: string | null) {
+  const { data, error } = await supabase.rpc('merge_customers', {
+    p_target_id: targetId,
+    p_duplicate_id: duplicateId,
+    p_staff_id: staffId ?? null,
+  })
+  if (error) throw error
+  return data as Customer
+}
+
+/** Change history for a customer's phone number — useful to see what was corrected and by whom. */
+export async function getPhoneHistory(customerId: string) {
+  const { data, error } = await supabase
+    .from('customer_phone_history')
+    .select('*, changed_by_user:users(name)')
+    .eq('customer_id', customerId)
+    .order('created_at', { ascending: false })
+  if (error) throw error
+  return data
+}

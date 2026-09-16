@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { MessageCircle, Archive, ArrowLeft, ShoppingBag } from 'lucide-react'
+import { MessageCircle, Archive, ArrowLeft, ShoppingBag, Pencil } from 'lucide-react'
 import { Card, PageHeader, Button, Badge, Spinner } from '../components/ui/primitives'
 import { getCustomer, getCustomerPurchaseSummary, archiveCustomer } from '../services/customers'
 import { supabase } from '../lib/supabase'
@@ -8,6 +8,7 @@ import type { Customer, Order, Feedback, Followup } from '../types/domain'
 import { formatCurrency, formatDate } from '../utils/format'
 import { buildWhatsAppLink, MESSAGE_TEMPLATES } from '../services/feedback'
 import { ConfirmDialog } from '../components/common/Modal'
+import { FixPhoneModal } from '../components/customers/FixPhoneModal'
 import { useAuth } from '../hooks/useAuth'
 
 export function CustomerDetail() {
@@ -21,6 +22,7 @@ export function CustomerDetail() {
   const [followups, setFollowups] = useState<Followup[]>([])
   const [loading, setLoading] = useState(true)
   const [showArchive, setShowArchive] = useState(false)
+  const [showFixPhone, setShowFixPhone] = useState(false)
 
   const load = useCallback(async () => {
     if (!id) return
@@ -84,7 +86,18 @@ export function CustomerDetail() {
           <p className="mb-3 font-display text-sm font-semibold text-ink-800">Profile</p>
           <dl className="space-y-2 text-sm">
             <Row label="Status"><Badge status={customer.status} /></Row>
-            <Row label="Phone">{customer.phone}</Row>
+            <Row label="Phone">
+              <span className="flex items-center gap-1.5">
+                {customer.phone}
+                <button
+                  onClick={() => setShowFixPhone(true)}
+                  title="Fix wrong phone number"
+                  className="rounded-md p-1 text-ink-300 hover:bg-ink-100 hover:text-brand-600"
+                >
+                  <Pencil className="h-3 w-3" />
+                </button>
+              </span>
+            </Row>
             <Row label="Email">{customer.email ?? '—'}</Row>
             <Row label="City">{customer.city ?? '—'}</Row>
             <Row label="Age Group">{customer.age_group ?? '—'}</Row>
@@ -191,6 +204,15 @@ export function CustomerDetail() {
           danger
           onConfirm={handleArchive}
           onClose={() => setShowArchive(false)}
+        />
+      )}
+
+      {showFixPhone && (
+        <FixPhoneModal
+          customer={customer}
+          onClose={() => setShowFixPhone(false)}
+          onSaved={() => { setShowFixPhone(false); load() }}
+          onMerged={(targetId) => { setShowFixPhone(false); navigate(`/customers/${targetId}`) }}
         />
       )}
     </div>

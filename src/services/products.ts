@@ -62,5 +62,13 @@ export async function listInventoryTransactions(productId?: string) {
 }
 
 export function lowStockProducts(products: Product[]) {
-  return products.filter((p) => p.status === 'active' && p.stock_quantity <= p.minimum_stock)
+  return products.filter((p) => p.status === 'active' && p.stock_quantity > 0 && p.stock_quantity <= p.minimum_stock)
+}
+
+export function outOfStockProducts(products: Product[]) {
+  return products.filter((p) => p.status === 'active' && p.stock_quantity <= 0)
+}
+
+export function inStockProducts(products: Product[]) {
+  return products.filter((p) => p.status === 'active' && p.stock_quantity > p.minimum_stock)
 }

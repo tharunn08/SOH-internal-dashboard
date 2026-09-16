@@ -69,9 +69,14 @@ export function OrderDetail() {
         {!order.customer?.email && (
           <p className="mb-2 text-xs text-ink-400">Add an email to this customer's profile to enable emailing the invoice.</p>
         )}
-        <p className="mb-4 text-xs text-ink-300">
+        <p className="mb-2 text-xs text-ink-300">
           Tip: for a clean printout without the browser's own date/URL header, open the print dialog's "More settings" and
           uncheck "Headers and footers" (Chrome/Edge) — it only needs doing once, the browser remembers it after.
+        </p>
+        <p className="mb-4 text-xs text-ink-300">
+          Order IDs are built from the products purchased — e.g. <strong>CUR-001</strong> is a Curcumin-only order,{' '}
+          <strong>MUL-IRN-001</strong> is Multivitamin + Iron, and 3+ different products use single-letter initials
+          (e.g. <strong>MIP-0001</strong> for Multivitamin, Iron, Probiotic).
         </p>
       </div>
 

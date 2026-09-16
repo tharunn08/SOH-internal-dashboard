@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { Download } from 'lucide-react'
 import { PageHeader, Button, Card, Input, Select, Badge, EmptyState, Spinner } from '../components/ui/primitives'
 import { listCustomers } from '../services/customers'
@@ -12,10 +12,11 @@ import { CustomerQuickForm } from '../components/customers/CustomerQuickForm'
 const PAGE_SIZE = 20
 
 export function Customers() {
+  const [searchParams] = useSearchParams()
   const [customers, setCustomers] = useState<Customer[]>([])
   const [count, setCount] = useState(0)
   const [page, setPage] = useState(0)
-  const [status, setStatus] = useState('')
+  const [status, setStatus] = useState(searchParams.get('status') ?? '')
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
   const [showAdd, setShowAdd] = useState(false)

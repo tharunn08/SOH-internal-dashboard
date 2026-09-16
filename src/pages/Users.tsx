@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Check, X, ChevronDown, ChevronUp } from 'lucide-react'
 import { PageHeader, Card, Badge, Spinner, Select, Button, Input, Label } from '../components/ui/primitives'
 import { supabase } from '../lib/supabase'
 import type { AppUser, UserRole } from '../types/domain'
@@ -7,10 +8,38 @@ import { useAuth } from '../hooks/useAuth'
 import { inviteUser } from '../services/users'
 import { Modal } from '../components/common/Modal'
 
+// Mirrors the actual Postgres row-level-security policies in
+// supabase/migrations/0001_init.sql — this table is documentation, not
+// enforcement. Access is enforced by the database regardless of what the
+// UI shows or hides.
+type Access = 'full' | 'view' | 'none'
+const PERMISSIONS: { area: string; admin: Access; manager: Access; staff: Access; note?: string }[] = [
+  { area: 'Dashboard & Analytics', admin: 'full', manager: 'full', staff: 'view' },
+  { area: 'Orders (create & view)', admin: 'full', manager: 'full', staff: 'full' },
+  { area: 'Orders (archive)', admin: 'full', manager: 'none', staff: 'none', note: 'Admin only' },
+  { area: 'Customers (create/edit)', admin: 'full', manager: 'full', staff: 'full' },
+  { area: 'Customers (archive/delete)', admin: 'full', manager: 'none', staff: 'none', note: 'Admin only' },
+  { area: 'Products (create/edit)', admin: 'full', manager: 'full', staff: 'view' },
+  { area: 'Products (delete)', admin: 'full', manager: 'none', staff: 'none', note: 'Admin only' },
+  { area: 'Inventory adjustments', admin: 'full', manager: 'full', staff: 'full' },
+  { area: 'Events', admin: 'full', manager: 'full', staff: 'full', note: 'Delete is admin-only' },
+  { area: 'Feedback & Follow-ups', admin: 'full', manager: 'full', staff: 'full' },
+  { area: 'Reports & Audit Logs', admin: 'full', manager: 'full', staff: 'none', note: 'Manager+ only' },
+  { area: 'Settings (thresholds)', admin: 'full', manager: 'view', staff: 'none', note: 'Admin edits, others read-only info' },
+  { area: 'Users (manage roles)', admin: 'full', manager: 'none', staff: 'none', note: 'Admin only' },
+]
+
+function AccessIcon({ level }: { level: Access }) {
+  if (level === 'full') return <span className="inline-flex items-center gap-1 text-emerald-600"><Check className="h-3.5 w-3.5" /> Full</span>
+  if (level === 'view') return <span className="inline-flex items-center gap-1 text-amber-600"><Check className="h-3.5 w-3.5" /> View only</span>
+  return <span className="inline-flex items-center gap-1 text-ink-300"><X className="h-3.5 w-3.5" /> No access</span>
+}
+
 export function Users() {
   const [users, setUsers] = useState<AppUser[]>([])
   const [loading, setLoading] = useState(true)
   const [showAdd, setShowAdd] = useState(false)
+  const [showPermissions, setShowPermissions] = useState(true)
   const { profile } = useAuth()
 
   async function refresh() {
@@ -40,6 +69,46 @@ export function Users() {
         description="Team members with access to this dashboard."
         actions={<Button onClick={() => setShowAdd(true)}>+ Add User</Button>}
       />
+
+      <Card className="mb-4 overflow-hidden">
+        <button
+          onClick={() => setShowPermissions((v) => !v)}
+          className="flex w-full items-center justify-between px-5 py-4 text-left"
+        >
+          <div>
+            <p className="font-display text-sm font-semibold text-ink-800">What can each role access?</p>
+            <p className="text-xs text-ink-400">Enforced by the database (row-level security) — this is not just UI hiding.</p>
+          </div>
+          {showPermissions ? <ChevronUp className="h-4 w-4 text-ink-400" /> : <ChevronDown className="h-4 w-4 text-ink-400" />}
+        </button>
+        {showPermissions && (
+          <div className="overflow-x-auto border-t border-ink-100">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-ink-100 text-left text-xs font-semibold uppercase text-ink-400">
+                  <th className="px-5 py-2.5">Area</th>
+                  <th className="px-5 py-2.5">Admin</th>
+                  <th className="px-5 py-2.5">Manager</th>
+                  <th className="px-5 py-2.5">Staff</th>
+                </tr>
+              </thead>
+              <tbody>
+                {PERMISSIONS.map((p) => (
+                  <tr key={p.area} className="border-b border-ink-50">
+                    <td className="px-5 py-2.5 font-medium text-ink-700">
+                      {p.area}
+                      {p.note && <span className="ml-2 text-xs font-normal text-ink-400">({p.note})</span>}
+                    </td>
+                    <td className="px-5 py-2.5"><AccessIcon level={p.admin} /></td>
+                    <td className="px-5 py-2.5"><AccessIcon level={p.manager} /></td>
+                    <td className="px-5 py-2.5"><AccessIcon level={p.staff} /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
 
       <Card className="overflow-hidden">
         <table className="w-full text-sm">

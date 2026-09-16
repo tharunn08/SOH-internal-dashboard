@@ -1,19 +1,20 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
-import { IndianRupee, ShoppingBag, Users, Package, Star, TrendingUp, AlertTriangle, PhoneCall } from 'lucide-react'
+import { UserPlus, Boxes, Package, PackageCheck, PackageX, AlertTriangle, PhoneCall, ChevronRight } from 'lucide-react'
 import { Card, PageHeader, Button, Spinner } from '../components/ui/primitives'
 import { getDashboardKpis, getRevenueOverTime, type DashboardKpis } from '../services/analytics'
-import { listProducts, lowStockProducts } from '../services/products'
+import { listProducts, lowStockProducts, outOfStockProducts, inStockProducts } from '../services/products'
 import { listFollowups } from '../services/feedback'
 import { formatCurrency, formatDate } from '../utils/format'
 import type { Product } from '../types/domain'
 import type { Followup } from '../types/domain'
 
 export function Dashboard() {
+  const navigate = useNavigate()
   const [kpis, setKpis] = useState<DashboardKpis | null>(null)
   const [revenue, setRevenue] = useState<{ date: string; revenue: number }[]>([])
-  const [lowStock, setLowStock] = useState<Product[]>([])
+  const [products, setProducts] = useState<Product[]>([])
   const [todayFollowups, setTodayFollowups] = useState<Followup[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -21,16 +22,16 @@ export function Dashboard() {
     let mounted = true
     async function load() {
       try {
-        const [k, r, products, followups] = await Promise.all([
+        const [k, r, p, followups] = await Promise.all([
           getDashboardKpis(),
           getRevenueOverTime(14),
-          listProducts(),
+          listProducts({ includeInactive: true }),
           listFollowups({ onlyToday: true }),
         ])
         if (!mounted) return
         setKpis(k)
         setRevenue(r)
-        setLowStock(lowStockProducts(products))
+        setProducts(p)
         setTodayFollowups(followups.filter((f) => f.status === 'pending'))
       } finally {
         if (mounted) setLoading(false)
@@ -48,15 +49,49 @@ export function Dashboard() {
     )
   }
 
-  const cards = [
-    { label: "Today's Sales", value: formatCurrency(kpis?.todaySales ?? 0), icon: IndianRupee },
-    { label: 'Total Revenue', value: formatCurrency(kpis?.totalRevenue ?? 0), icon: TrendingUp },
-    { label: 'Total Orders', value: kpis?.totalOrders ?? 0, icon: ShoppingBag },
-    { label: 'Total Customers', value: kpis?.totalCustomers ?? 0, icon: Users },
-    { label: 'Products Sold', value: kpis?.productsSold ?? 0, icon: Package },
-    { label: 'Avg Order Value', value: formatCurrency(kpis?.averageOrderValue ?? 0), icon: IndianRupee },
-    { label: 'New Customers Today', value: kpis?.newCustomersToday ?? 0, icon: Users },
-    { label: 'Avg Rating', value: (kpis?.averageRating ?? 0).toFixed(1) + ' ★', icon: Star },
+  const lowStock = lowStockProducts(products)
+  const outOfStock = outOfStockProducts(products)
+  const inStock = inStockProducts(products)
+
+  // Each tile links to the page that has the full detail behind that number —
+  // clicking a tile takes you straight to the filtered list, not just a count.
+  const navCards = [
+    {
+      label: 'New Customers',
+      value: kpis?.newCustomersToday ?? 0,
+      sub: 'today · view all',
+      icon: UserPlus,
+      to: '/customers?status=new',
+    },
+    {
+      label: 'Products',
+      value: products.filter((p) => p.status === 'active').length,
+      sub: 'active in catalog',
+      icon: Package,
+      to: '/products',
+    },
+    {
+      label: 'Inventory',
+      value: products.length,
+      sub: 'tracked SKUs',
+      icon: Boxes,
+      to: '/inventory',
+    },
+    {
+      label: 'In Stock',
+      value: inStock.length,
+      sub: 'above minimum level',
+      icon: PackageCheck,
+      to: '/inventory/in-stock',
+    },
+    {
+      label: 'Out of Stock',
+      value: outOfStock.length,
+      sub: outOfStock.length ? 'needs restock now' : 'all clear',
+      icon: PackageX,
+      to: '/inventory/out-of-stock',
+      urgent: outOfStock.length > 0,
+    },
   ]
 
   return (
@@ -71,16 +106,50 @@ export function Dashboard() {
         }
       />
 
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        {cards.map((c) => (
-          <Card key={c.label} className="p-4">
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-5">
+        {navCards.map((c) => (
+          <Card
+            key={c.label}
+            className={`cursor-pointer p-4 transition-shadow hover:shadow-md ${c.urgent ? 'border-red-200 bg-red-50' : ''}`}
+            onClick={() => navigate(c.to)}
+          >
             <div className="mb-2 flex items-center justify-between">
-              <p className="text-xs font-medium text-ink-400">{c.label}</p>
-              <c.icon className="h-4 w-4 text-brand-500" />
+              <p className={`text-xs font-medium ${c.urgent ? 'text-red-500' : 'text-ink-400'}`}>{c.label}</p>
+              <c.icon className={`h-4 w-4 ${c.urgent ? 'text-red-500' : 'text-brand-500'}`} />
             </div>
-            <p className="font-display text-2xl font-semibold text-ink-900">{c.value}</p>
+            <p className={`font-display text-2xl font-semibold ${c.urgent ? 'text-red-700' : 'text-ink-900'}`}>{c.value}</p>
+            <p className={`mt-1 flex items-center gap-0.5 text-[11px] ${c.urgent ? 'text-red-500' : 'text-ink-400'}`}>
+              {c.sub} <ChevronRight className="h-3 w-3" />
+            </p>
           </Card>
         ))}
+      </div>
+
+      <div className="mt-4 grid grid-cols-2 gap-4 md:grid-cols-4">
+        <Link to="/orders">
+          <Card className="p-4 transition-shadow hover:shadow-md">
+            <p className="text-xs font-medium text-ink-400">Total Orders</p>
+            <p className="mt-1 font-display text-xl font-semibold text-ink-900">{kpis?.totalOrders ?? 0}</p>
+          </Card>
+        </Link>
+        <Link to="/customers">
+          <Card className="p-4 transition-shadow hover:shadow-md">
+            <p className="text-xs font-medium text-ink-400">Total Customers</p>
+            <p className="mt-1 font-display text-xl font-semibold text-ink-900">{kpis?.totalCustomers ?? 0}</p>
+          </Card>
+        </Link>
+        <Link to="/analytics">
+          <Card className="p-4 transition-shadow hover:shadow-md">
+            <p className="text-xs font-medium text-ink-400">Total Revenue</p>
+            <p className="mt-1 font-display text-xl font-semibold text-ink-900">{formatCurrency(kpis?.totalRevenue ?? 0)}</p>
+          </Card>
+        </Link>
+        <Link to="/reports">
+          <Card className="p-4 transition-shadow hover:shadow-md">
+            <p className="text-xs font-medium text-ink-400">Avg Order Value</p>
+            <p className="mt-1 font-display text-xl font-semibold text-ink-900">{formatCurrency(kpis?.averageOrderValue ?? 0)}</p>
+          </Card>
+        </Link>
       </div>
 
       <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
@@ -119,6 +188,9 @@ export function Dashboard() {
                 ))}
               </ul>
             )}
+            <Link to="/inventory/low-stock" className="mt-3 inline-block text-xs font-semibold text-brand-600 hover:underline">
+              View inventory →
+            </Link>
           </Card>
 
           <Card className="p-5">

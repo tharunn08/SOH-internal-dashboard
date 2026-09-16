@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, Receipt, ShoppingBag, Users, Package, Boxes, CalendarDays,
-  MessageSquareHeart, PhoneCall, BarChart3, FileBarChart, UserCog, Settings,
+  PhoneCall, BarChart3, FileBarChart, UserCog, Settings,
   Search, LogOut, Menu, X, HelpCircle,
 } from 'lucide-react'
 import clsx from 'clsx'
@@ -20,7 +20,6 @@ const NAV_SECTIONS: { label?: string; items: NavItem[] }[] = [
     label: 'Sell',
     items: [
       { to: '/orders/new', label: 'New Order', icon: ShoppingBag, highlight: true },
-      { to: '/sales', label: 'Sales', icon: Receipt },
       { to: '/orders', label: 'Orders', icon: Receipt },
       { to: '/customers', label: 'Customers', icon: Users },
     ],
@@ -39,7 +38,6 @@ const NAV_SECTIONS: { label?: string; items: NavItem[] }[] = [
   {
     label: 'Relationships',
     items: [
-      { to: '/feedback', label: 'Feedback', icon: MessageSquareHeart },
       { to: '/followups', label: 'Follow-ups', icon: PhoneCall },
     ],
   },

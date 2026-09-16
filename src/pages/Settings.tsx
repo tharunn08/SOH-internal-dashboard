@@ -62,6 +62,15 @@ export function Settings() {
       <PageHeader title="Settings & Backup" description="Business configuration and data export tools." />
 
       <Card className="p-5">
+        <p className="mb-2 font-display text-sm font-semibold text-ink-800">Why this page exists</p>
+        <ul className="list-disc space-y-1.5 pl-4 text-sm text-ink-500">
+          <li>Change the rules that decide when a customer becomes <strong>Repeat</strong> or <strong>VIP</strong>, without needing a developer.</li>
+          <li>Download a full backup of every record any time — useful before a big event, or just for peace of mind.</li>
+          <li>See where your data actually lives, so it's clear that nothing is lost if the app or browser is reset.</li>
+        </ul>
+      </Card>
+
+      <Card className="p-5">
         <div className="mb-3 flex items-center gap-2">
           <ShieldCheck className="h-4.5 w-4.5 text-brand-500" />
           <p className="font-display text-sm font-semibold text-ink-800">Where your data lives</p>
