@@ -1,5 +1,3 @@
-}
-
 function buildInvoiceMessage(order: Order) {
   const lines = order.order_items?.map(
     (i) => `${i.product?.name} x${i.quantity} — ${formatCurrency(i.total_price)}`
